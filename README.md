@@ -9,6 +9,7 @@
 DATABASE_NAME="your_database_name"
 DATABASE_USER="your_database_user"
 DATABASE_PASSWORD="your_database_password"
+DATABASE_SCHEMA_name="your_database_schema_name" # i.e. standard this is usually `public`
 ```
 
 ## How to connect to your client:
