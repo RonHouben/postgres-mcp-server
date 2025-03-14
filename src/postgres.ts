@@ -7,16 +7,9 @@ export type PostgresClientOptions = Pick<
 >;
 
 export class PostgresClient {
-  public readonly connectionString: string; // TODO: Don't expose this anymore
-  public readonly schemaPath = 'schema';
-
   private readonly pool: pg.Pool;
 
   constructor(options: PostgresClientOptions) {
-    this.connectionString = new URL(
-      `postgres://${options.user}:${options.password}@${options.host}:${options.port}/${options.database}`
-    ).href;
-
     this.pool = new pg.Pool({
       user: options.user,
       password: options.password,
@@ -28,17 +21,21 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    params?: unknown[]
+    options?: { readonly: boolean }
   ): Promise<QueryResult<T>> {
     const client = await this.pool.connect();
 
     try {
-      return await client.query<T>(query, params);
+      if (options?.readonly) {
+        await client.query('BEGIN TRANSACTION READ ONLY');
+      }
+
+      return await client.query<T>(query);
     } catch (e) {
       const error = e as Error;
 
       console.error('Query execution error:');
-      console.log({ error, query, params });
+      console.log({ error, query, options });
 
       throw error;
     } finally {

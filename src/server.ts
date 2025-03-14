@@ -1,4 +1,4 @@
-import { McpServer  } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PostgresClient, PostgresClientOptions } from './postgres.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -23,7 +23,7 @@ export class PostgresMcpServer {
       password: options.database.password,
       host: options.database.host,
       port: options.database.port,
-      database: options.database.database
+      database: options.database.database,
     });
   }
 
@@ -43,13 +43,13 @@ export class PostgresMcpServer {
     return new McpServer(
       {
         name: options.name,
-        version: options.version
+        version: options.version,
       },
       {
         capabilities: {
           resources: {},
-          tools: {}
-        }
+          tools: {},
+        },
       }
     );
   }
@@ -60,18 +60,30 @@ export class PostgresMcpServer {
     this.setReadonlyQueryTool();
 
     console.log('Tools set successfully');
-
   }
 
   private setReadonlyQueryTool() {
-    this.server.tool('readonly-query','Execute a read only query', { sqlQuery: z.string() }, async ({ sqlQuery }) => {
-        await this.postgres.query('BEGIN TRANSACTION READ ONLY');
-
-        const result = await this.postgres.query(sqlQuery);
+    this.server.tool(
+      'readonly-query',
+      'Execute a read only query',
+      { sqlQuery: z.string() },
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
 
         return {
           content: [
-            { type: 'text', text: JSON.stringify(result.rows, null, 2) }
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  queryResult: queryResult.rows,
+                  rowCount: queryResult.rowCount,
+                  sqlQuery,
+                },
+                null,
+                2
+              ),
+            },
           ],
         };
       }
