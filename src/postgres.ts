@@ -1,21 +1,26 @@
 import pg from 'pg';
 import type { QueryResult, QueryResultRow, PoolConfig } from 'pg';
 
-export type PostgresClientOptions = Pick<
-  PoolConfig,
-  'user' | 'password' | 'host' | 'port' | 'database'
+export type PostgresClientOptions = Required<
+  Pick<PoolConfig, 'user' | 'password' | 'host' | 'port' | 'database'> & CustomOptions
 >;
 
-export class PostgresClient {
-  public readonly connectionString: string; // TODO: Don't expose this anymore
-  public readonly schemaPath = 'schema';
+type CustomOptions = {
+  schemaName: string;
+};
 
+export class PostgresClient {
+  public readonly schemaName: string;
+
+  private readonly baseUri: string;
+  private readonly database: string;
   private readonly pool: pg.Pool;
 
   constructor(options: PostgresClientOptions) {
-    this.connectionString = new URL(
-      `postgres://${options.user}:${options.password}@${options.host}:${options.port}/${options.database}`
-    ).href;
+    this.database = options.database;
+    this.schemaName = options.schemaName;
+
+    this.baseUri = `postgres://${this.database}`;
 
     this.pool = new pg.Pool({
       user: options.user,
@@ -28,17 +33,21 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    params?: unknown[]
+    options: { readonly: boolean } = { readonly: true } // default to readonly to avoid accidental writes
   ): Promise<QueryResult<T>> {
     const client = await this.pool.connect();
 
     try {
-      return await client.query<T>(query, params);
+      if (options.readonly) {
+        await client.query('BEGIN TRANSACTION READ ONLY');
+      }
+
+      return await client.query<T>(query);
     } catch (e) {
       const error = e as Error;
 
       console.error('Query execution error:');
-      console.log({ error, query, params });
+      console.log({ error, query, options });
 
       throw error;
     } finally {
@@ -52,5 +61,9 @@ export class PostgresClient {
       client.release();
       console.log('Client released');
     }
+  }
+
+  public getUri(tableName: string): string {
+    return new URL(`${tableName}/${this.schemaName}`, this.baseUri).href;
   }
 }

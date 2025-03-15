@@ -1,4 +1,4 @@
-import { McpServer  } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PostgresClient, PostgresClientOptions } from './postgres.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -12,24 +12,27 @@ type PostgresMcpServerOptions = {
 };
 
 export class PostgresMcpServer {
-  public readonly postgres: PostgresClient;
+  public readonly db: PostgresClient;
 
   private readonly server: McpServer;
 
   constructor(options: PostgresMcpServerOptions) {
     this.server = this.createPostgresMcpServer(options.mcp);
-    this.postgres = new PostgresClient({
+
+    this.db = new PostgresClient({
+      schemaName: options.database.schemaName,
       user: options.database.user,
       password: options.database.password,
       host: options.database.host,
       port: options.database.port,
-      database: options.database.database
+      database: options.database.database,
     });
   }
 
   public async start() {
     console.log('Starting server...');
 
+    this.setResources();
     this.setTools();
 
     const transport = new StdioServerTransport();
@@ -43,15 +46,44 @@ export class PostgresMcpServer {
     return new McpServer(
       {
         name: options.name,
-        version: options.version
+        version: options.version,
       },
       {
         capabilities: {
-          resources: {},
-          tools: {}
-        }
+          resources: {
+            subscribe: true,
+            listChanged: true,
+          },
+          tools: {},
+        },
       }
     );
+  }
+
+  private setResources() {
+    console.log('Setting resources...');
+
+    this.setListResources();
+
+    console.log('Resources set successfully');
+  }
+
+  private setListResources() {
+    this.server.resource('list-tables', 'postgres://list-tables', async () => {
+      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.db.schemaName}'`;
+
+      const queryResult = await this.db.query(query);
+
+      return {
+        contents: queryResult.rows.map((row) => ({
+          uri: this.db.getUri(row.table_name),
+          text: JSON.stringify(row, null, 2),
+          mimeType: 'application/json',
+          name: `"${row.table_name}" database schema`,
+          description: `This is the "${row.table_name}" database schema. This data is requested from the database using the following query: "${query}"`,
+        })),
+      };
+    });
   }
 
   private setTools() {
@@ -60,18 +92,28 @@ export class PostgresMcpServer {
     this.setReadonlyQueryTool();
 
     console.log('Tools set successfully');
-
   }
 
   private setReadonlyQueryTool() {
-    this.server.tool('readonly-query','Execute a read only query', { sqlQuery: z.string() }, async ({ sqlQuery }) => {
-        await this.postgres.query('BEGIN TRANSACTION READ ONLY');
-
-        const result = await this.postgres.query(sqlQuery);
+    this.server.tool(
+      'readonly-query',
+      'Execute a read only query',
+      { sqlQuery: z.string().describe('SQL query to execute') },
+      async ({ sqlQuery }) => {
+        const queryResult = await this.db.query(sqlQuery, { readonly: true });
 
         return {
           content: [
-            { type: 'text', text: JSON.stringify(result.rows, null, 2) }
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  queryResult: queryResult.rows,
+                },
+                null,
+                2
+              ),
+            },
           ],
         };
       }
