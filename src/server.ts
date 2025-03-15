@@ -1,4 +1,4 @@
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PostgresClient, PostgresClientOptions } from './postgres.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -50,7 +50,10 @@ export class PostgresMcpServer {
       },
       {
         capabilities: {
-          resources: {},
+          resources: {
+            subscribe: true,
+            listChanged: true,
+          },
           tools: {},
         },
       }
@@ -66,25 +69,21 @@ export class PostgresMcpServer {
   }
 
   private setListResources() {
-    this.server.resource(
-      'list',
-      new ResourceTemplate('postgres://list', { list: undefined }),
-      async () => {
-        const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.db.schemaName}'`;
+    this.server.resource('list-tables', 'postgres://list-tables', async () => {
+      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.db.schemaName}'`;
 
-        const queryResult = await this.db.query(query);
+      const queryResult = await this.db.query(query);
 
-        return {
-          contents: queryResult.rows.map((row) => ({
-            uri: this.db.getUri(row.table_name),
-            mimeType: 'application/json',
-            name: `"${row.table_name}" database schema`,
-            description: `This is the "${row.table_name}" database schema. This data is requested from the database using the following query: "${query}"`,
-            blob: '',
-          })),
-        };
-      }
-    );
+      return {
+        contents: queryResult.rows.map((row) => ({
+          uri: this.db.getUri(row.table_name),
+          text: JSON.stringify(row, null, 2),
+          mimeType: 'application/json',
+          name: `"${row.table_name}" database schema`,
+          description: `This is the "${row.table_name}" database schema. This data is requested from the database using the following query: "${query}"`,
+        })),
+      };
+    });
   }
 
   private setTools() {
@@ -99,7 +98,7 @@ export class PostgresMcpServer {
     this.server.tool(
       'readonly-query',
       'Execute a read only query',
-      { sqlQuery: z.string() },
+      { sqlQuery: z.string().describe('SQL query to execute') },
       async ({ sqlQuery }) => {
         const queryResult = await this.db.query(sqlQuery, { readonly: true });
 
@@ -110,8 +109,6 @@ export class PostgresMcpServer {
               text: JSON.stringify(
                 {
                   queryResult: queryResult.rows,
-                  rowCount: queryResult.rowCount,
-                  sqlQuery,
                 },
                 null,
                 2
