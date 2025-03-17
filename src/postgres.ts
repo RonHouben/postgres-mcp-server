@@ -56,17 +56,19 @@ export class PostgresClient {
       console.error('Query execution error:');
       console.log({ error, query, options });
 
-      throw error;
-    } finally {
       console.log('Rolling back transaction...');
 
       await client
         .query('ROLLBACK')
         .catch((error) => console.warn('Could not roll back transaction:', error));
 
+      throw error;
+    } finally {
       console.log('Releasing client...');
       client.release();
       console.log('Client released');
+
+      await this.disconnectPool();
     }
   }
 
@@ -76,5 +78,13 @@ export class PostgresClient {
 
   private setDatabaseInPool(databaseName: string) {
     this.pool.options.database = databaseName;
+  }
+
+  private async disconnectPool() {
+    console.log('Ending pool...');
+
+    await this.pool.end();
+
+    console.log('Ending pool...');
   }
 }

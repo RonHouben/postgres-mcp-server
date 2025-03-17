@@ -118,7 +118,7 @@ export class PostgresMcpServer {
   }
 
   private setListDatabasesTool() {
-    this.mcpServer.tool('list-databases', 'List all databases', {}, async () => {
+    this.mcpServer.tool('get-all-databases', 'List all databases', {}, async () => {
       const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
       const queryResult = await this.postgres.query(query);
@@ -142,10 +142,10 @@ export class PostgresMcpServer {
 
   private setListDatabaseTablesTool() {
     this.mcpServer.tool(
-      'list-database-tables',
+      'get-all-database-tables',
       'List all tables in the database',
       {
-        databaseName: z.string().describe('Database name'),
+        databaseName: z.string().describe('Database name you want to list tables from'),
       },
       async ({ databaseName }) => {
         const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
