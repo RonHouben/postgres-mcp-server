@@ -110,9 +110,66 @@ export class PostgresMcpServer {
   private setTools() {
     console.log('Setting tools...');
 
+    this.setListDatabasesTool();
+    this.setListDatabaseTablesTool();
     this.setReadonlyQueryTool();
 
     console.log('Tools set successfully');
+  }
+
+  private setListDatabasesTool() {
+    this.mcpServer.tool('list-databases', 'List all databases', {}, async () => {
+      const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
+
+      const queryResult = await this.postgres.query(query);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                queryResult: queryResult.rows,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    });
+  }
+
+  private setListDatabaseTablesTool() {
+    this.mcpServer.tool(
+      'list-database-tables',
+      'List all tables in the database',
+      {
+        databaseName: z.string().describe('Database name'),
+      },
+      async ({ databaseName }) => {
+        const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
+
+        const queryResult = await this.postgres.query(query, {
+          databaseName,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  queryResult: queryResult.rows,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+    );
   }
 
   private setReadonlyQueryTool() {
