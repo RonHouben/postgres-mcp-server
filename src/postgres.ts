@@ -33,7 +33,7 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    options: { databaseName?: string; readonly: boolean } = {
+    options: { databaseName?: string; readonly?: boolean } = {
       databaseName: this.pool.options.database,
       readonly: true, // default to readonly to avoid accidental writes
     }
