@@ -12,14 +12,14 @@ type PostgresMcpServerOptions = {
 };
 
 export class PostgresMcpServer {
-  public readonly db: PostgresClient;
+  public readonly postgres: PostgresClient;
 
-  private readonly server: McpServer;
+  private readonly mcpServer: McpServer;
 
   constructor(options: PostgresMcpServerOptions) {
-    this.server = this.createPostgresMcpServer(options.mcp);
+    this.mcpServer = this.createPostgresMcpServer(options.mcp);
 
-    this.db = new PostgresClient({
+    this.postgres = new PostgresClient({
       schemaName: options.database.schemaName,
       user: options.database.user,
       password: options.database.password,
@@ -37,7 +37,7 @@ export class PostgresMcpServer {
 
     const transport = new StdioServerTransport();
 
-    await this.server.connect(transport);
+    await this.mcpServer.connect(transport);
 
     console.log('Server started successfully');
   }
@@ -69,14 +69,14 @@ export class PostgresMcpServer {
   }
 
   private setListResources() {
-    this.server.resource('list-tables', 'postgres://list-tables', async () => {
-      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.db.schemaName}'`;
+    this.mcpServer.resource('list-tables', 'postgres://list-tables', async () => {
+      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-      const queryResult = await this.db.query(query);
+      const queryResult = await this.postgres.query(query);
 
       return {
         contents: queryResult.rows.map((row) => ({
-          uri: this.db.getUri(row.table_name),
+          uri: this.postgres.getUri(row.table_name),
           text: JSON.stringify(row, null, 2),
           mimeType: 'application/json',
           name: `"${row.table_name}" database schema`,
@@ -95,12 +95,15 @@ export class PostgresMcpServer {
   }
 
   private setReadonlyQueryTool() {
-    this.server.tool(
+    this.mcpServer.tool(
       'readonly-query',
       'Execute a read only query',
-      { sqlQuery: z.string().describe('SQL query to execute') },
-      async ({ sqlQuery }) => {
-        const queryResult = await this.db.query(sqlQuery, { readonly: true });
+      {
+        databaseName: z.string().describe('Database name'),
+        sqlQuery: z.string().describe('SQL query to execute'),
+      },
+      async ({ databaseName, sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { databaseName, readonly: true });
 
         return {
           content: [

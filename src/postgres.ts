@@ -13,14 +13,14 @@ export class PostgresClient {
   public readonly schemaName: string;
 
   private readonly baseUri: string;
-  private readonly database: string;
+  private readonly databaseName: string;
   private readonly pool: pg.Pool;
 
   constructor(options: PostgresClientOptions) {
-    this.database = options.database;
+    this.databaseName = options.database;
     this.schemaName = options.schemaName;
 
-    this.baseUri = `postgres://${this.database}`;
+    this.baseUri = `postgres://${this.databaseName}`;
 
     this.pool = new pg.Pool({
       user: options.user,
@@ -33,8 +33,15 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    options: { readonly: boolean } = { readonly: true } // default to readonly to avoid accidental writes
+    options: { databaseName?: string; readonly: boolean } = {
+      databaseName: this.pool.options.database,
+      readonly: true, // default to readonly to avoid accidental writes
+    }
   ): Promise<QueryResult<T>> {
+    if (options.databaseName) {
+      this.setDatabaseInPool(options.databaseName);
+    }
+
     const client = await this.pool.connect();
 
     try {
@@ -65,5 +72,9 @@ export class PostgresClient {
 
   public getUri(tableName: string): string {
     return new URL(`${tableName}/${this.schemaName}`, this.baseUri).href;
+  }
+
+  private setDatabaseInPool(databaseName: string) {
+    this.pool.options.database = databaseName;
   }
 }
