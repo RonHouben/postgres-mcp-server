@@ -33,15 +33,10 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    options: { databaseName?: string; readonly?: boolean } = {
-      databaseName: this.pool.options.database,
+    options: { readonly?: boolean } = {
       readonly: true, // default to readonly to avoid accidental writes
     }
   ): Promise<QueryResult<T>> {
-    if (options.databaseName) {
-      this.setDatabaseInPool(options.databaseName);
-    }
-
     const client = await this.pool.connect();
 
     try {
@@ -74,10 +69,6 @@ export class PostgresClient {
 
   public getUri(tableName: string): string {
     return new URL(`${tableName}/${this.schemaName}`, this.baseUri).href;
-  }
-
-  private setDatabaseInPool(databaseName: string) {
-    this.pool.options.database = databaseName;
   }
 
   private async disconnectPool() {
