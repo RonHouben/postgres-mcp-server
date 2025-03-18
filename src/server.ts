@@ -144,15 +144,11 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'get-all-database-tables',
       'List all tables in the database',
-      {
-        databaseName: z.string().describe('Database name you want to list tables from'),
-      },
-      async ({ databaseName }) => {
+      {},
+      async () => {
         const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-        const queryResult = await this.postgres.query(query, {
-          databaseName,
-        });
+        const queryResult = await this.postgres.query(query);
 
         return {
           content: [
@@ -177,11 +173,10 @@ export class PostgresMcpServer {
       'readonly-query',
       'Execute a read only query',
       {
-        databaseName: z.string().describe('Database name'),
         sqlQuery: z.string().describe('SQL query to execute'),
       },
-      async ({ databaseName, sqlQuery }) => {
-        const queryResult = await this.postgres.query(sqlQuery, { databaseName, readonly: true });
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
 
         return {
           content: [
