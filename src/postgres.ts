@@ -62,8 +62,6 @@ export class PostgresClient {
       console.log('Releasing client...');
       client.release();
       console.log('Client released');
-
-      await this.disconnectPool();
     }
   }
 
@@ -71,11 +69,11 @@ export class PostgresClient {
     return new URL(`${tableName}/${this.schemaName}`, this.baseUri).href;
   }
 
-  private async disconnectPool() {
-    console.log('Ending pool...');
+  public async close() {
+    console.log('Ending Postgres pool...');
 
     await this.pool.end();
 
-    console.log('Ending pool...');
+    console.log('Postgres pool ended.');
   }
 }

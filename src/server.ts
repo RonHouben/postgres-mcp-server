@@ -12,8 +12,7 @@ type PostgresMcpServerOptions = {
 };
 
 export class PostgresMcpServer {
-  public readonly postgres: PostgresClient;
-
+  private readonly postgres: PostgresClient;
   private readonly mcpServer: McpServer;
 
   constructor(options: PostgresMcpServerOptions) {
@@ -34,6 +33,7 @@ export class PostgresMcpServer {
 
     this.setResources();
     this.setTools();
+    this.setHandleClose();
 
     const transport = new StdioServerTransport();
 
@@ -194,5 +194,11 @@ export class PostgresMcpServer {
         };
       }
     );
+  }
+
+  private setHandleClose() {
+    this.mcpServer.server.onclose = async () => {
+      await this.postgres.close();
+    };
   }
 }
