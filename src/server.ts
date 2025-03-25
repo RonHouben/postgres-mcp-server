@@ -173,7 +173,11 @@ export class PostgresMcpServer {
       'readonly-query',
       'Execute a read only query',
       {
-        sqlQuery: z.string().describe('SQL query to execute'),
+        sqlQuery: z
+          .string()
+          .describe(
+            'The SQL read-only query to execute against the database. When a table name is given in camelCase, make sure to use double quotes around it.'
+          ),
       },
       async ({ sqlQuery }) => {
         const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
