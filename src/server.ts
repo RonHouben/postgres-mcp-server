@@ -72,25 +72,29 @@ export class PostgresMcpServer {
   }
 
   private setResourceListDatabases() {
-    this.mcpServer.resource('list-databases', 'postgres://list-databases', async () => {
-      const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
+    this.mcpServer.resource(
+      'db-resources-list-databases',
+      'postgres://list-databases',
+      async () => {
+        const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-      const queryResult = await this.postgres.query(query);
+        const queryResult = await this.postgres.query(query);
 
-      return {
-        contents: queryResult.rows.map((row) => ({
-          uri: this.postgres.getUri(row.datname),
-          text: JSON.stringify(row, null, 2),
-          mimeType: 'application/json',
-          name: `"${row.datname}" database schema`,
-          description: `This is the "${row.datname}" database schema. This data is requested from the database using the following query: "${query}"`,
-        })),
-      };
-    });
+        return {
+          contents: queryResult.rows.map((row) => ({
+            uri: this.postgres.getUri(row.datname),
+            text: JSON.stringify(row, null, 2),
+            mimeType: 'application/json',
+            name: `"${row.datname}" database schema`,
+            description: `This is the "${row.datname}" database schema. This data is requested from the database using the following query: "${query}"`,
+          })),
+        };
+      }
+    );
   }
 
   private setResourceListDatabaseTables() {
-    this.mcpServer.resource('list-database-tables', 'postgres://list-database-tables', async () => {
+    this.mcpServer.resource('db-resources-list-tables', 'postgres://list-tables', async () => {
       const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
       const queryResult = await this.postgres.query(query);
