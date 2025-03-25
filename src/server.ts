@@ -113,12 +113,13 @@ export class PostgresMcpServer {
     this.setListDatabasesTool();
     this.setListDatabaseTablesTool();
     this.setReadonlyQueryTool();
+    this.setWriteQueryTool();
 
     console.log('Tools set successfully');
   }
 
   private setListDatabasesTool() {
-    this.mcpServer.tool('get-all-databases', 'List all databases', {}, async () => {
+    this.mcpServer.tool('db-list-databases', 'List all databases', {}, async () => {
       const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
       const queryResult = await this.postgres.query(query);
@@ -130,6 +131,7 @@ export class PostgresMcpServer {
             text: JSON.stringify(
               {
                 queryResult: queryResult.rows,
+                executedQuery: query,
               },
               null,
               2
@@ -141,36 +143,32 @@ export class PostgresMcpServer {
   }
 
   private setListDatabaseTablesTool() {
-    this.mcpServer.tool(
-      'get-all-database-tables',
-      'List all tables in the database',
-      {},
-      async () => {
-        const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
+    this.mcpServer.tool('db-list-all-tables', 'List all tables in the database', {}, async () => {
+      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-        const queryResult = await this.postgres.query(query);
+      const queryResult = await this.postgres.query(query);
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  queryResult: queryResult.rows,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-    );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                queryResult: queryResult.rows,
+                executedQuery: query,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    });
   }
 
   private setReadonlyQueryTool() {
     this.mcpServer.tool(
-      'readonly-query',
+      'db-readonly-query',
       'Execute a read only query',
       {
         sqlQuery: z
@@ -189,6 +187,40 @@ export class PostgresMcpServer {
               text: JSON.stringify(
                 {
                   queryResult: queryResult.rows,
+                  executedQuery: sqlQuery,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+    );
+  }
+
+  private setWriteQueryTool() {
+    this.mcpServer.tool(
+      'db-write-query',
+      'Execute a write query',
+      {
+        sqlQuery: z
+          .string()
+          .describe(
+            'The SQL write query to execute against the database. ONLY EXECUTE THIS QUERY AFTER CONSULTING THE QUERY WITH THE USER! When a table name is given in camelCase, make sure to use double quotes around it.'
+          ),
+      },
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: false });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  queryResult: queryResult.rows,
+                  executedQuery: sqlQuery,
                 },
                 null,
                 2
