@@ -42,7 +42,13 @@ export class PostgresClient {
         await client.query('BEGIN TRANSACTION READ ONLY');
       }
 
-      return await client.query<T>(query);
+      const result = await client.query<T>(query);
+
+      if (options.readonly) {
+        await client.query('COMMIT');
+      }
+
+      return result;
     } catch (e) {
       const error = e as Error;
 
