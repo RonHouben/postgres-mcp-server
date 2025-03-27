@@ -33,9 +33,7 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    options: { readonly?: boolean } = {
-      readonly: true, // default to readonly to avoid accidental writes
-    }
+    options: { readonly: boolean }
   ): Promise<QueryResult<T>> {
     const client = await this.pool.connect();
 

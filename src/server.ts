@@ -78,7 +78,7 @@ export class PostgresMcpServer {
       async () => {
         const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-        const queryResult = await this.postgres.query(query);
+        const queryResult = await this.postgres.query(query, { readonly: true });
 
         return {
           contents: queryResult.rows.map((row) => ({
@@ -97,7 +97,7 @@ export class PostgresMcpServer {
     this.mcpServer.resource('db-resources-list-tables', 'postgres://list-tables', async () => {
       const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-      const queryResult = await this.postgres.query(query);
+      const queryResult = await this.postgres.query(query, { readonly: true });
 
       return {
         contents: queryResult.rows.map((row) => ({
@@ -126,7 +126,7 @@ export class PostgresMcpServer {
     this.mcpServer.tool('db-list-databases', 'List all databases', {}, async () => {
       const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-      const queryResult = await this.postgres.query(query);
+      const queryResult = await this.postgres.query(query, { readonly: true });
 
       return {
         content: [
@@ -150,7 +150,7 @@ export class PostgresMcpServer {
     this.mcpServer.tool('db-list-all-tables', 'List all tables in the database', {}, async () => {
       const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-      const queryResult = await this.postgres.query(query);
+      const queryResult = await this.postgres.query(query, { readonly: true });
 
       return {
         content: [
