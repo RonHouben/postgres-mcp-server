@@ -8,7 +8,6 @@ type PostgresMcpServerOptions = {
     name: string;
     version: string;
     instructions: string;
-    customInstructions?: string;
   };
   database: PostgresClientOptions;
 };
@@ -50,9 +49,7 @@ export class PostgresMcpServer {
       },
       {
         enforceStrictCapabilities: true,
-        instructions: options.instructions.concat(
-          options.customInstructions ?? 'no custom instructions given'
-        ),
+        instructions: options.instructions,
         capabilities: {
           resources: {
             subscribe: true,
