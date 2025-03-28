@@ -1,4 +1,4 @@
-import { PostgresMcpServer } from './server.js';
+import { PostgresMcpServer } from './mcp-server.js';
 
 const postgresMcpServer = new PostgresMcpServer({
   database: {

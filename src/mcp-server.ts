@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { PostgresClient, PostgresClientOptions } from './postgres.js';
+import { PostgresClient, PostgresClientOptions } from './postgres-client.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { pick } from 'lodash';
+import { ObjectUtils } from './utils/objectUtils.js';
 
 type PostgresMcpServerOptions = {
   mcp: {
@@ -78,7 +78,7 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-list-databases',
       'List all databases',
-      pick(this.postgres.validationSchema, 'databaseName'),
+      ObjectUtils.pick(this.postgres.validationSchema, 'databaseName'),
       async ({ databaseName }) => {
         const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
@@ -107,7 +107,7 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-list-all-tables',
       'List all tables in the database',
-      pick(this.postgres.validationSchema, 'databaseName'),
+      ObjectUtils.pick(this.postgres.validationSchema, 'databaseName'),
       async ({ databaseName }) => {
         const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
