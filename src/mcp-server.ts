@@ -38,7 +38,10 @@ export class PostgresMcpServer {
 
     await this.mcpServer.connect(transport);
 
-    console.log('Server started successfully');
+    await this.mcpServer.server.sendLoggingMessage({
+      level: 'info',
+      message: 'Server started successfully',
+    });
   }
 
   private createPostgresMcpServer(options: PostgresMcpServerOptions['mcp']) {
@@ -58,6 +61,9 @@ export class PostgresMcpServer {
           tools: {
             listChanged: true,
           },
+          logging: {},
+          experimental: {},
+          prompts: { listChanged: true },
         },
       }
     );
