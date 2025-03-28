@@ -15,10 +15,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.7.0",
+    "lodash": "4.17.21",
     "pg": "^8.11.3",
     "ts-node": "10.9.2"
   },
   "devDependencies": {
+    "@types/lodash": "4.17.16",
     "@types/node": "20.17.24",
     "@types/pg": "8.11.11",
     "@typescript-eslint/eslint-plugin": "8.26.1",

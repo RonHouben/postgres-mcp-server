@@ -1,8 +1,9 @@
 import pg from 'pg';
 import type { QueryResult, QueryResultRow, PoolConfig } from 'pg';
+import * as z from 'zod';
 
 export type PostgresClientOptions = Required<
-  Pick<PoolConfig, 'user' | 'password' | 'host' | 'port' | 'database'> & CustomOptions
+  Pick<PoolConfig, 'user' | 'password' | 'host' | 'port'> & CustomOptions
 >;
 
 type CustomOptions = {
@@ -11,30 +12,31 @@ type CustomOptions = {
 
 export class PostgresClient {
   public readonly schemaName: string;
+  public readonly validationSchema = {
+    databaseName: z.string().describe('The name of the database'),
+    sqlQuery: z.string().describe('The SQL query to execute against the database'),
+  };
 
-  private readonly baseUri: string;
-  private readonly databaseName: string;
   private readonly pool: pg.Pool;
 
   constructor(options: PostgresClientOptions) {
-    this.databaseName = options.database;
     this.schemaName = options.schemaName;
-
-    this.baseUri = `postgres://${this.databaseName}`;
 
     this.pool = new pg.Pool({
       user: options.user,
       password: options.password,
       host: options.host,
       port: options.port,
-      database: options.database,
     });
   }
 
   public async query<T extends QueryResultRow>(
+    databaseName: string,
     query: string,
     options: { readonly: boolean }
   ): Promise<QueryResult<T>> {
+    this.setDatabaseOnPool(databaseName);
+
     const client = await this.pool.connect();
 
     try {
@@ -69,15 +71,23 @@ export class PostgresClient {
     }
   }
 
-  public getUri(tableName: string): string {
-    return new URL(`${tableName}/${this.schemaName}`, this.baseUri).href;
+  public getUri(databaseName: string, tableName: string): string {
+    const baseUri = `postgres://${databaseName}`;
+
+    return new URL(`${tableName}/${this.schemaName}`, baseUri).href;
   }
 
   public async close() {
     console.log('Ending Postgres pool...');
 
+    this.setDatabaseOnPool('');
+
     await this.pool.end();
 
     console.log('Postgres pool ended.');
+  }
+
+  private setDatabaseOnPool(databaseName: string) {
+    this.pool.options.database = databaseName;
   }
 }

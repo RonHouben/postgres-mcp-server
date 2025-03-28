@@ -1,12 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PostgresClient, PostgresClientOptions } from './postgres.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
+import { pick } from 'lodash';
 
 type PostgresMcpServerOptions = {
   mcp: {
     name: string;
     version: string;
+    instructions: string;
   };
   database: PostgresClientOptions;
 };
@@ -24,14 +25,12 @@ export class PostgresMcpServer {
       password: options.database.password,
       host: options.database.host,
       port: options.database.port,
-      database: options.database.database,
     });
   }
 
   public async start() {
     console.log('Starting server...');
 
-    this.setResources();
     this.setTools();
     this.setHandleClose();
 
@@ -49,6 +48,8 @@ export class PostgresMcpServer {
         version: options.version,
       },
       {
+        enforceStrictCapabilities: true,
+        instructions: options.instructions,
         capabilities: {
           resources: {
             subscribe: true,
@@ -60,55 +61,6 @@ export class PostgresMcpServer {
         },
       }
     );
-  }
-
-  private setResources() {
-    console.log('Setting resources...');
-
-    this.setResourceListDatabases();
-    this.setResourceListDatabaseTables();
-
-    console.log('Resources set successfully');
-  }
-
-  private setResourceListDatabases() {
-    this.mcpServer.resource(
-      'db-resources-list-databases',
-      'postgres://list-databases',
-      async () => {
-        const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
-
-        const queryResult = await this.postgres.query(query, { readonly: true });
-
-        return {
-          contents: queryResult.rows.map((row) => ({
-            uri: this.postgres.getUri(row.datname),
-            text: JSON.stringify(row, null, 2),
-            mimeType: 'application/json',
-            name: `"${row.datname}" database schema`,
-            description: `This is the "${row.datname}" database schema. This data is requested from the database using the following query: "${query}"`,
-          })),
-        };
-      }
-    );
-  }
-
-  private setResourceListDatabaseTables() {
-    this.mcpServer.resource('db-resources-list-tables', 'postgres://list-tables', async () => {
-      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
-
-      const queryResult = await this.postgres.query(query, { readonly: true });
-
-      return {
-        contents: queryResult.rows.map((row) => ({
-          uri: this.postgres.getUri(row.table_name),
-          text: JSON.stringify(row, null, 2),
-          mimeType: 'application/json',
-          name: `"${row.table_name}" database schema`,
-          description: `This is the "${row.table_name}" database schema. This data is requested from the database using the following query: "${query}"`,
-        })),
-      };
-    });
   }
 
   private setTools() {
@@ -123,66 +75,71 @@ export class PostgresMcpServer {
   }
 
   private setListDatabasesTool() {
-    this.mcpServer.tool('db-list-databases', 'List all databases', {}, async () => {
-      const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
+    this.mcpServer.tool(
+      'db-list-databases',
+      'List all databases',
+      pick(this.postgres.validationSchema, 'databaseName'),
+      async ({ databaseName }) => {
+        const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-      const queryResult = await this.postgres.query(query, { readonly: true });
+        const queryResult = await this.postgres.query(databaseName, query, { readonly: true });
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                queryResult: queryResult.rows,
-                executedQuery: query,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
-    });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  queryResult: queryResult.rows,
+                  executedQuery: query,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+    );
   }
 
   private setListDatabaseTablesTool() {
-    this.mcpServer.tool('db-list-all-tables', 'List all tables in the database', {}, async () => {
-      const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
+    this.mcpServer.tool(
+      'db-list-all-tables',
+      'List all tables in the database',
+      pick(this.postgres.validationSchema, 'databaseName'),
+      async ({ databaseName }) => {
+        const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-      const queryResult = await this.postgres.query(query, { readonly: true });
+        const queryResult = await this.postgres.query(databaseName, query, { readonly: true });
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                queryResult: queryResult.rows,
-                executedQuery: query,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
-    });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  queryResult: queryResult.rows,
+                  executedQuery: query,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+    );
   }
 
   private setReadonlyQueryTool() {
     this.mcpServer.tool(
       'db-readonly-query',
       'Execute a read only query',
-      {
-        sqlQuery: z
-          .string()
-          .describe(
-            'The SQL read-only query to execute against the database. When a table name is given in camelCase, make sure to use double quotes around it.'
-          ),
-      },
-      async ({ sqlQuery }) => {
-        const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
+
+      this.postgres.validationSchema,
+      async ({ databaseName, sqlQuery }) => {
+        const queryResult = await this.postgres.query(databaseName, sqlQuery, { readonly: true });
 
         return {
           content: [
@@ -207,15 +164,9 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-write-query',
       'Execute a write query',
-      {
-        sqlQuery: z
-          .string()
-          .describe(
-            'The SQL write query to execute against the database. ONLY EXECUTE THIS QUERY AFTER CONSULTING THE QUERY WITH THE USER! When a table name is given in camelCase, make sure to use double quotes around it.'
-          ),
-      },
-      async ({ sqlQuery }) => {
-        const queryResult = await this.postgres.query(sqlQuery, { readonly: false });
+      this.postgres.validationSchema,
+      async ({ databaseName, sqlQuery }) => {
+        const queryResult = await this.postgres.query(databaseName, sqlQuery, { readonly: false });
 
         return {
           content: [
