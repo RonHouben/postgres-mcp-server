@@ -106,7 +106,7 @@ export class PostgresMcpServer {
   private setListDatabaseTablesTool() {
     this.mcpServer.tool(
       'db-list-all-tables',
-      'List all tables in the database',
+      'List all tables in the database'.concat(process.env.CUSTOM_INSTRUCTIONS ?? ''),
       ObjectUtils.pick(this.postgres.validationSchema, 'databaseName'),
       async ({ databaseName }) => {
         const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;

@@ -13,7 +13,10 @@ type CustomOptions = {
 export class PostgresClient {
   public readonly schemaName: string;
   public readonly validationSchema = {
-    databaseName: z.string().describe('The name of the database'),
+    databaseName: z
+      .string()
+      .describe('The name of the database')
+      .describe(process.env.CUSTOM_INSTRUCTIONS ?? ''),
     sqlQuery: z.string().describe('The SQL query to execute against the database'),
   };
 
