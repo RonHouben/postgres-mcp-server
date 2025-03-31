@@ -15,7 +15,7 @@
     "inspect": "npx -y @modelcontextprotocol/inspector npm start"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.7.0",
+    "@modelcontextprotocol/sdk": "1.8.0",
     "pg": "^8.11.3",
     "ts-node": "10.9.2"
   },
