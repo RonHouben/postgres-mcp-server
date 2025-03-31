@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.7.0",
-    "pg": "^8.11.3",
+    "pg": "^8.14.1",
     "ts-node": "10.9.2"
   },
   "devDependencies": {
