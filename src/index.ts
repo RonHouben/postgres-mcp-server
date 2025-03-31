@@ -2,6 +2,7 @@ import { PostgresMcpServer } from './mcp-server.js';
 
 const postgresMcpServer = new PostgresMcpServer({
   database: {
+    database: process.env.DATABASE_NAME!,
     host: 'localhost',
     password: process.env.DATABASE_PASSWORD!,
     port: 5432,

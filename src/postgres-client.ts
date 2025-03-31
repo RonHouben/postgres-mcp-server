@@ -3,7 +3,7 @@ import type { QueryResult, QueryResultRow, PoolConfig } from 'pg';
 import * as z from 'zod';
 
 export type PostgresClientOptions = Required<
-  Pick<PoolConfig, 'user' | 'password' | 'host' | 'port'> & CustomOptions
+  Pick<PoolConfig, 'database' | 'user' | 'password' | 'host' | 'port'> & CustomOptions
 >;
 
 type CustomOptions = {
@@ -13,10 +13,6 @@ type CustomOptions = {
 export class PostgresClient {
   public readonly schemaName: string;
   public readonly validationSchema = {
-    databaseName: z
-      .string()
-      .describe('The name of the database')
-      .describe(process.env.CUSTOM_INSTRUCTIONS ?? ''),
     sqlQuery: z.string().describe('The SQL query to execute against the database'),
   };
 
@@ -26,6 +22,7 @@ export class PostgresClient {
     this.schemaName = options.schemaName;
 
     this.pool = new pg.Pool({
+      database: options.database,
       user: options.user,
       password: options.password,
       host: options.host,
@@ -34,12 +31,9 @@ export class PostgresClient {
   }
 
   public async query<T extends QueryResultRow>(
-    databaseName: string,
     query: string,
     options: { readonly: boolean }
   ): Promise<QueryResult<T>> {
-    this.setDatabaseOnPool(databaseName);
-
     const client = await this.pool.connect();
 
     try {

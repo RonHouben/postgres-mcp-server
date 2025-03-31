@@ -25,6 +25,7 @@ DATABASE_SCHEMA_name="your_database_schema_name" # i.e. standard this is usually
     "args": ["start", "--prefix", "/path/to/code/postgres-mcp-server"],
     "env": {
       "CUSTOM_INSTRUCTIONS": "The databaseName is specific for the git branch we are on. It always has the same structure: cs_xxxxx, where the cs_xxxxx stands for the Jira ticket number. This Jira ticket number we always use at the start of a git branch. Hence, you should be able to take this from the current branch and create the databaseName from it",
+      "DATABASE_NAME": "my-database-name",
       "DATABASE_USER": "my-user",
       "DATABASE_PASSWORD": "my-password",
       "DATABASE_SCHEMA_NAME": "public"

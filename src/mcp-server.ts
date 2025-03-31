@@ -20,6 +20,7 @@ export class PostgresMcpServer {
     this.mcpServer = this.createPostgresMcpServer(options.mcp);
 
     this.postgres = new PostgresClient({
+      database: options.database.database,
       schemaName: options.database.schemaName,
       user: options.database.user,
       password: options.database.password,
@@ -81,43 +82,37 @@ export class PostgresMcpServer {
   }
 
   private setListDatabasesTool() {
-    this.mcpServer.tool(
-      'db-list-databases',
-      'List all databases',
-      ObjectUtils.pick(this.postgres.validationSchema, 'databaseName'),
-      async ({ databaseName }) => {
-        const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
+    this.mcpServer.tool('db-list-databases', 'List all databases', async () => {
+      const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-        const queryResult = await this.postgres.query(databaseName, query, { readonly: true });
+      const queryResult = await this.postgres.query(query, { readonly: true });
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  queryResult: queryResult.rows,
-                  executedQuery: query,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-    );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                queryResult: queryResult.rows,
+                executedQuery: query,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    });
   }
 
   private setListDatabaseTablesTool() {
     this.mcpServer.tool(
       'db-list-all-tables',
       'List all tables in the database'.concat(process.env.CUSTOM_INSTRUCTIONS ?? ''),
-      ObjectUtils.pick(this.postgres.validationSchema, 'databaseName'),
-      async ({ databaseName }) => {
+      async () => {
         const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-        const queryResult = await this.postgres.query(databaseName, query, { readonly: true });
+        const queryResult = await this.postgres.query(query, { readonly: true });
 
         return {
           content: [
@@ -143,9 +138,9 @@ export class PostgresMcpServer {
       'db-readonly-query',
       'Execute a read only query',
 
-      this.postgres.validationSchema,
-      async ({ databaseName, sqlQuery }) => {
-        const queryResult = await this.postgres.query(databaseName, sqlQuery, { readonly: true });
+      ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery'),
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
 
         return {
           content: [
@@ -170,9 +165,9 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-write-query',
       'Execute a write query',
-      this.postgres.validationSchema,
-      async ({ databaseName, sqlQuery }) => {
-        const queryResult = await this.postgres.query(databaseName, sqlQuery, { readonly: false });
+      ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery'),
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: false });
 
         return {
           content: [
