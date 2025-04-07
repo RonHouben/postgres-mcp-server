@@ -5,7 +5,7 @@ This is a PostgresSQL Model Context Protocol server to let your LLM interact wit
 
 ## Prerequisites
 
-- have node and npm installed
+- have [deno](https://deno.com/) installed
 - have the following environment variables set:
 
 ```
@@ -15,25 +15,28 @@ DATABASE_PASSWORD="your_database_password"
 DATABASE_SCHEMA_name="your_database_schema_name" # i.e. standard this is usually `public`
 ```
 
-## Easy config for your IDE:
+## Easy config for in your VSCODE settings.json:
 
 ```json
 {
+ "chat.mcp.discovery.enabled": true,
+ "mcp": {
   "postgresql-database": {
-    "command": "npm",
-    "type": "stdio",
-    "args": ["start", "--prefix", "/path/to/code/postgres-mcp-server"],
-    "env": {
-      "CUSTOM_INSTRUCTIONS": "The databaseName is specific for the git branch we are on. It always has the same structure: cs_xxxxx, where the cs_xxxxx stands for the Jira ticket number. This Jira ticket number we always use at the start of a git branch. Hence, you should be able to take this from the current branch and create the databaseName from it",
-      "DATABASE_NAME": "my-database-name",
-      "DATABASE_USER": "my-user",
-      "DATABASE_PASSWORD": "my-password",
-      "DATABASE_SCHEMA_NAME": "public"
+      "command": "deno",
+      "type": "stdio",
+      "args": [
+          "run",
+          "--allow-all",
+          "/path/to/code/postgres-mcp-server/src/index.ts"
+      ],
+      "env": {
+        "CUSTOM_INSTRUCTIONS": "The databaseName is specific for the git branch we are on. It always has the same structure: jira_xxxxx, where the jira_xxxxx stands for the Jira ticket number. This Jira ticket number we always use at the start of a git branch. Hence, you should be able to take this from the current branch and create the databaseName from it",
+        "DATABASE_NAME": "my-database-name",
+        "DATABASE_USER": "my-user",
+        "DATABASE_PASSWORD": "my-password",
+        "DATABASE_SCHEMA_NAME": "public"
+      }
     }
   }
 }
 ```
-
-## How to connect to your client:
-
-- command to start: `npm start --prefix /full/path/to/postgres-mcp-server`
