@@ -14,26 +14,26 @@ type PostgresMcpServerOptions = {
 };
 
 export class PostgresMcpServer {
-  // private readonly postgres: PostgresClient;
+  private readonly postgres: PostgresClient;
   private readonly mcpServer: McpServer;
 
   constructor(options: PostgresMcpServerOptions) {
     this.mcpServer = this.createPostgresMcpServer(options.mcp);
 
-    // this.postgres = new PostgresClient({
-    //   database: options.database.database,
-    //   schemaName: options.database.schemaName,
-    //   user: options.database.user,
-    //   password: options.database.password,
-    //   host: options.database.host,
-    //   port: options.database.port,
-    // });
+    this.postgres = new PostgresClient({
+      database: options.database.database,
+      schemaName: options.database.schemaName,
+      user: options.database.user,
+      password: options.database.password,
+      host: options.database.host,
+      port: options.database.port,
+    });
   }
 
   public async start() {
     this.setResources();
-    // this.setTools();
-    // this.setHandleClose();
+    this.setTools();
+    this.setHandleClose();
 
     const transport = new StdioServerTransport();
 
@@ -76,38 +76,21 @@ export class PostgresMcpServer {
       'db-resources-list-databases',
       'postgres://list-databases',
       async () => {
-        // const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
+        const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-        // const queryResult = await this.postgres.query(query, { readonly: true });
+        const queryResult = await this.postgres.query(query, { readonly: true });
 
         return {
           contents: [
             {
               text: JSON.stringify({
-                foo: 'bar',
-                // queryResult: queryResult.rows,
-                // executedQuery: query,
+                queryResult: queryResult.rows,
+                executedQuery: query,
               }),
               uri: 'postgresql://list-databases',
             },
           ],
         };
-
-        // return {
-        //   content: [
-        //     {
-        //       type: 'text',
-        //       text: JSON.stringify(
-        //         {
-        //           queryResult: queryResult.rows,
-        //           executedQuery: query,
-        //         },
-        //         null,
-        //         2
-        //       ),
-        //     },
-        //   ],
-        // };
       }
     );
   }
@@ -121,17 +104,17 @@ export class PostgresMcpServer {
 
   private setListDatabasesTool() {
     this.mcpServer.tool('db-list-databases', 'List all databases', async () => {
-      // const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
+      const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
 
-      // const queryResult = await this.postgres.query(query, { readonly: true });
+      const queryResult = await this.postgres.query(query, { readonly: true });
 
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
-              // queryResult: queryResult.rows,
-              // executedQuery: query,
+              queryResult: queryResult.rows,
+              executedQuery: query,
             }),
           },
         ],
@@ -144,17 +127,17 @@ export class PostgresMcpServer {
       'db-list-all-tables',
       'List all tables in the database'.concat(process.env.CUSTOM_INSTRUCTIONS ?? ''),
       async () => {
-        // const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
+        const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${this.postgres.schemaName}'`;
 
-        // const queryResult = await this.postgres.query(query, { readonly: true });
+        const queryResult = await this.postgres.query(query, { readonly: true });
 
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify({
-                // queryResult: queryResult.rows,
-                // executedQuery: query,
+                queryResult: queryResult.rows,
+                executedQuery: query,
               }),
             },
           ],
@@ -167,17 +150,17 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-readonly-query',
       'Execute a read only query',
-      // ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery'),
-      async () => {
-        // const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
+      ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery'),
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: true });
 
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify({
-                // queryResult: queryResult.rows,
-                // executedQuery: sqlQuery,
+                queryResult: queryResult.rows,
+                executedQuery: sqlQuery,
               }),
             },
           ],
@@ -190,17 +173,17 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-write-query',
       'Execute a write query',
-      // ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery'),
-      async () => {
-        // const queryResult = await this.postgres.query(sqlQuery, { readonly: false });
+      ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery'),
+      async ({ sqlQuery }) => {
+        const queryResult = await this.postgres.query(sqlQuery, { readonly: false });
 
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify({
-                // queryResult: queryResult.rows,
-                // executedQuery: sqlQuery,
+                queryResult: queryResult.rows,
+                executedQuery: sqlQuery,
               }),
             },
           ],
@@ -211,7 +194,7 @@ export class PostgresMcpServer {
 
   private setHandleClose() {
     this.mcpServer.server.onclose = async () => {
-      // await this.postgres.close();
+      await this.postgres.close();
     };
   }
 }

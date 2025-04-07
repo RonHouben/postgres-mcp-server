@@ -55,11 +55,6 @@ export class PostgresClient {
     } catch (e) {
       const error = e as Error;
 
-      // console.error('Query execution error:');
-      // console.error({ error, query, options });
-
-      // console.error('Rolling back transaction...');
-
       await client.query('ROLLBACK');
 
       throw error;
