@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "start": "deno run --allow-all src/index.ts",
+    "dev": "deno run --allow-env --allow-net --watch src/index.ts"
+  },
+  "imports": {
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.8.0",
+    "@std/assert": "jsr:@std/assert@1",
+    "pg": "npm:pg@^8.14.1",
+    "zod": "npm:zod@^3.24.2"
+  }
+}

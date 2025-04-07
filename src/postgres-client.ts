@@ -13,7 +13,11 @@ type CustomOptions = {
 export class PostgresClient {
   public readonly schemaName: string;
   public readonly validationSchema = {
-    sqlQuery: z.string().describe('The SQL query to execute against the database'),
+    sqlQuery: z
+      .string()
+      .describe(
+        'The SQL query to execute against the database. Use double quotes when fields or tables are camelCases to avoid SQL syntax issues.'
+      ),
   };
 
   private readonly pool: pg.Pool;
@@ -51,20 +55,16 @@ export class PostgresClient {
     } catch (e) {
       const error = e as Error;
 
-      console.error('Query execution error:');
-      console.log({ error, query, options });
+      // console.error('Query execution error:');
+      // console.error({ error, query, options });
 
-      console.log('Rolling back transaction...');
+      // console.error('Rolling back transaction...');
 
-      await client
-        .query('ROLLBACK')
-        .catch((error) => console.warn('Could not roll back transaction:', error));
+      await client.query('ROLLBACK');
 
       throw error;
     } finally {
-      console.log('Releasing client...');
       client.release();
-      console.log('Client released');
     }
   }
 
@@ -75,13 +75,9 @@ export class PostgresClient {
   }
 
   public async close() {
-    console.log('Ending Postgres pool...');
-
     this.setDatabaseOnPool('');
 
     await this.pool.end();
-
-    console.log('Postgres pool ended.');
   }
 
   private setDatabaseOnPool(databaseName: string) {
