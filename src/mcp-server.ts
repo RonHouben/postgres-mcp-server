@@ -1,7 +1,8 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ReadResourceCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PostgresClient, PostgresClientOptions } from './postgres-client.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ObjectUtils } from './utils/objectUtils.js';
+import { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 
 type PostgresMcpServerOptions = {
   mcp: {
@@ -80,15 +81,12 @@ export class PostgresMcpServer {
         const queryResult = await this.postgres.query(query, { readonly: true });
 
         return {
-          contents: [
-            {
-              text: JSON.stringify({
-                queryResult: queryResult.rows,
-                executedQuery: query,
-              }),
-              uri: 'postgresql://list-databases',
-            },
-          ],
+          contents: queryResult.rows.map((row) => ({
+            uri: new URL(`${row.datname}/${this.postgres.schemaName}`, this.postgres.baserUrl).href,
+            mimeType: 'application/json',
+            name: `"${row.datname}" database schema`,
+            text: JSON.stringify(row),
+          })),
         };
       }
     );

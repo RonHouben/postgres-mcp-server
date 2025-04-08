@@ -11,7 +11,9 @@ type CustomOptions = {
 };
 
 export class PostgresClient {
+  public readonly baserUrl: URL;
   public readonly schemaName: string;
+
   public readonly validationSchema = {
     sqlQuery: z
       .string()
@@ -23,6 +25,8 @@ export class PostgresClient {
   private readonly pool: pg.Pool;
 
   constructor(options: PostgresClientOptions) {
+    this.baserUrl = this.getBaseUrl({ databaseName: options.database });
+
     this.schemaName = options.schemaName;
 
     this.pool = new pg.Pool({
@@ -63,16 +67,18 @@ export class PostgresClient {
     }
   }
 
-  public getUri(databaseName: string, tableName: string): string {
-    const baseUri = `postgres://${databaseName}`;
-
-    return new URL(`${tableName}/${this.schemaName}`, baseUri).href;
-  }
-
   public async close() {
     this.setDatabaseOnPool('');
 
     await this.pool.end();
+  }
+
+  private getBaseUrl({ databaseName }: { databaseName: string }) {
+    const url = new URL(`postgres://${databaseName}`);
+    url.protocol = 'postgres:';
+    url.password = '';
+
+    return url;
   }
 
   private setDatabaseOnPool(databaseName: string) {
