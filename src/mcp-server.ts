@@ -1,8 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { PostgresClient, PostgresClientOptions } from './postgres-client.ts';
+import { PostgresClient, PostgresClientOptions } from './postgres-client.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ObjectUtils } from './utils/objectUtils.ts';
-import process from 'node:process';
+import { ObjectUtils } from './utils/objectUtils.js';
 
 type PostgresMcpServerOptions = {
   mcp: {

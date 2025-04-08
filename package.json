@@ -1,0 +1,38 @@
+{
+  "name": "postgres-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for an LLM to interact with your PosgreSQL server",
+  "homepage": "https://github.com/RonHouben/postgres-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/RonHouben/postgres-mcp-server/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RonHouben/postgres-mcp-server.git"
+  },
+  "license": "MIT",
+  "author": "Ron Houben (ron.houben85@gmail.com)",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "node --loader ts-node/esm src/index.ts",
+    "dev": "nodemon --exec node --loader ts-node/esm src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "inspect": "npx -y @modelcontextprotocol/inspector npm start"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "@types/pg": "8.11.11",
+    "eslint": "9.24.0",
+    "nodemon": "3.1.9",
+    "typescript": "5.8.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.9.0",
+    "pg": "8.14.1",
+    "ts-node": "10.9.2",
+    "zod": "3.24.2"
+  }
+}

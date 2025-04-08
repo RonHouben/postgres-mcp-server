@@ -1,7 +1,4 @@
-import { PostgresMcpServer } from './mcp-server.ts';
-import process from 'node:process';
-
-console.log('Starting Postgres MCP server...');
+import { PostgresMcpServer } from './mcp-server.js';
 
 const postgresMcpServer = new PostgresMcpServer({
   database: {
