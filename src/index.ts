@@ -10,6 +10,7 @@ const postgresMcpServer = new PostgresMcpServer({
     schemaName: process.env.DATABASE_SCHEMA_NAME!,
   },
   mcp: {
+    customInstructions: process.env.CUSTOM_INSTRUCTIONS ?? '',
     name: 'Postgres',
     version: '1.1',
     instructions: `This is a PostgresSQL MCP server.
