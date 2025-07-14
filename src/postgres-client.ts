@@ -13,8 +13,8 @@ type CustomOptions = {
 export class PostgresClient {
   public readonly baserUrl: URL;
   public readonly schemaName: string;
-
   public readonly validationSchema = {
+    databaseName: z.string().describe('The name of the database to connect to.'),
     sqlQuery: z
       .string()
       .describe(
@@ -22,9 +22,11 @@ export class PostgresClient {
       ),
   };
 
+  private readonly initialDatabaseName: string;
   private readonly pool: pg.Pool;
 
   constructor(options: PostgresClientOptions) {
+    this.initialDatabaseName = options.database;
     this.baserUrl = this.getBaseUrl({ databaseName: options.database });
 
     this.schemaName = options.schemaName;
@@ -40,8 +42,10 @@ export class PostgresClient {
 
   public async query<T extends QueryResultRow>(
     query: string,
-    options: { readonly: boolean }
+    options: { readonly: boolean; databaseName?: string }
   ): Promise<QueryResult<T>> {
+    this.setDatabaseOnPool(options.databaseName ?? this.initialDatabaseName);
+
     const client = await this.pool.connect();
 
     try {
