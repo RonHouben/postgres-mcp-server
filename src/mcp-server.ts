@@ -155,7 +155,7 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-readonly-query',
       'Execute a read only query. '.concat(this.customInstructions),
-      ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery', 'databaseName'),
+      ObjectUtils.pick(this.postgres.validationSchema, 'databaseName', 'sqlQuery'),
       async ({ sqlQuery, databaseName }) => {
         const queryResult = await this.postgres.query(sqlQuery, { databaseName, readonly: true });
 
@@ -178,7 +178,7 @@ export class PostgresMcpServer {
     this.mcpServer.tool(
       'db-write-query',
       'Execute a write query. '.concat(this.customInstructions),
-      ObjectUtils.pick(this.postgres.validationSchema, 'sqlQuery', 'databaseName'),
+      ObjectUtils.pick(this.postgres.validationSchema, 'databaseName', 'sqlQuery'),
       async ({ sqlQuery, databaseName }) => {
         const queryResult = await this.postgres.query(sqlQuery, { databaseName, readonly: false });
 

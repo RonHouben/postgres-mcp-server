@@ -14,7 +14,7 @@ export class PostgresClient {
   public readonly baserUrl: URL;
   public readonly schemaName: string;
   public readonly validationSchema = {
-    databaseName: z.string().describe('The name of the database to connect to.'),
+    databaseName: z.string().describe('The name of the database to connect to.').optional(),
     sqlQuery: z
       .string()
       .describe(
