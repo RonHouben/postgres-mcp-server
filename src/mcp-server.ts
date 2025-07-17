@@ -1,4 +1,4 @@
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { PostgresClient, PostgresClientOptions } from './postgres-client.js';
 import { ObjectUtils } from './utils/objectUtils.js';
@@ -33,7 +33,6 @@ export class PostgresMcpServer {
   }
 
   public async start() {
-    this.setResources();
     this.setTools();
     this.setHandleClose();
 
@@ -65,32 +64,6 @@ export class PostgresMcpServer {
             listChanged: false,
           },
         },
-      }
-    );
-  }
-
-  private setResources() {
-    this.setResourceListDatabases();
-  }
-
-  private setResourceListDatabases() {
-    this.mcpServer.registerResource(
-      'db-resources-list-databases',
-      'postgres://list-databases',
-      {},
-      async () => {
-        const query = `SELECT datname FROM pg_database WHERE datistemplate = false`;
-
-        const queryResult = await this.postgres.query(query, { readonly: true });
-
-        return {
-          contents: queryResult.rows.map((row) => ({
-            uri: new URL(`${row.datname}/${this.postgres.schemaName}`, this.postgres.baserUrl).href,
-            mimeType: 'application/json',
-            name: `"${row.datname}" database schema`,
-            text: JSON.stringify(row),
-          })),
-        };
       }
     );
   }
