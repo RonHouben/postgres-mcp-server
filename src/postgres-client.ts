@@ -1,6 +1,6 @@
 import pg from 'pg';
 import type { QueryResult, QueryResultRow, PoolConfig } from 'pg';
-import * as z from 'zod';
+import { z } from 'zod';
 
 export type PostgresClientOptions = Required<
   Pick<PoolConfig, 'database' | 'user' | 'password' | 'host' | 'port'> & CustomOptions
@@ -44,7 +44,9 @@ export class PostgresClient {
     query: string,
     options: { readonly: boolean; databaseName?: string }
   ): Promise<QueryResult<T>> {
-    this.setDatabaseOnPool(options.databaseName ?? this.initialDatabaseName);
+    if (options.databaseName) {
+      this.setDatabaseOnPool(options.databaseName);
+    }
 
     const client = await this.pool.connect();
 
@@ -72,7 +74,7 @@ export class PostgresClient {
   }
 
   public async close() {
-    this.setDatabaseOnPool('');
+    this.setDatabaseOnPool(this.initialDatabaseName);
 
     await this.pool.end();
   }
@@ -85,7 +87,7 @@ export class PostgresClient {
     return url;
   }
 
-  private setDatabaseOnPool(databaseName: string) {
+  private setDatabaseOnPool(databaseName: string | undefined) {
     this.pool.options.database = databaseName;
   }
 }
