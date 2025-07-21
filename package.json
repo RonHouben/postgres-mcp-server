@@ -23,7 +23,7 @@
     "inspect": "npx -y @modelcontextprotocol/inspector npm start"
   },
   "devDependencies": {
-    "@types/node": "24.0.14",
+    "@types/node": "24.0.15",
     "@types/pg": "8.15.4",
     "eslint": "9.31.0",
     "nodemon": "3.1.10",
