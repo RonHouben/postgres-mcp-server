@@ -10,20 +10,32 @@ type CustomOptions = {
   schemaName: string;
 };
 
+type QueryOptions = {
+  readonly: boolean;
+  databaseName?: string;
+  values?: unknown[];
+};
+
 export class PostgresClient {
   public readonly baserUrl: URL;
   public readonly schemaName: string;
-  public readonly validationSchema = {
+  public readonly validationSchema = z.object({
     databaseName: z.string().describe('The name of the database to connect to.').optional(),
     sqlQuery: z
       .string()
       .describe(
         'The SQL query to execute against the database. Use double quotes when fields or tables are camelCases to avoid SQL syntax issues.'
       ),
-  };
+  });
+
+  public readonly resultSchema = z.object({
+    queryResult: z.array(z.record(z.string(), z.unknown())).describe('The rows returned by the query.'),
+    executedQuery: z.string().describe('The SQL that was executed.'),
+  });
 
   private readonly initialDatabaseName: string;
-  private readonly pool: pg.Pool;
+  private readonly connectionOptions: Omit<PoolConfig, 'database'>;
+  private readonly pools = new Map<string, pg.Pool>();
 
   constructor(options: PostgresClientOptions) {
     this.initialDatabaseName = options.database;
@@ -31,31 +43,27 @@ export class PostgresClient {
 
     this.schemaName = options.schemaName;
 
-    this.pool = new pg.Pool({
-      database: options.database,
+    this.connectionOptions = {
       user: options.user,
       password: options.password,
       host: options.host,
       port: options.port,
-    });
+    };
   }
 
   public async query<T extends QueryResultRow>(
     query: string,
-    options: { readonly: boolean; databaseName?: string }
+    options: QueryOptions
   ): Promise<QueryResult<T>> {
-    if (options.databaseName) {
-      this.setDatabaseOnPool(options.databaseName);
-    }
-
-    const client = await this.pool.connect();
+    const pool = this.getPool(options.databaseName ?? this.initialDatabaseName);
+    const client = await pool.connect();
 
     try {
       if (options.readonly) {
         await client.query('BEGIN TRANSACTION READ ONLY');
       }
 
-      const result = await client.query<T>(query);
+      const result = await client.query<T>(query, options.values);
 
       if (options.readonly) {
         await client.query('COMMIT');
@@ -74,9 +82,11 @@ export class PostgresClient {
   }
 
   public async close() {
-    this.setDatabaseOnPool(this.initialDatabaseName);
+    const pools = [...this.pools.values()];
 
-    await this.pool.end();
+    this.pools.clear();
+
+    await Promise.all(pools.map((pool) => pool.end()));
   }
 
   private getBaseUrl({ databaseName }: { databaseName: string }) {
@@ -87,7 +97,18 @@ export class PostgresClient {
     return url;
   }
 
-  private setDatabaseOnPool(databaseName: string | undefined) {
-    this.pool.options.database = databaseName;
+  // A pg pool is bound to the database it was created for, so each database needs its own.
+  private getPool(databaseName: string) {
+    const existingPool = this.pools.get(databaseName);
+
+    if (existingPool) {
+      return existingPool;
+    }
+
+    const pool = new pg.Pool({ ...this.connectionOptions, database: databaseName });
+
+    this.pools.set(databaseName, pool);
+
+    return pool;
   }
 }
