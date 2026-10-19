@@ -80,3 +80,19 @@ Client config:
   }
 }
 ```
+
+### Run on login (macOS)
+
+```sh
+npm run service:install
+```
+
+This installs a launchd agent that starts the HTTP server from this checkout when you log in and restarts it if it crashes. It uses the `node` on your `PATH` at install time and `MCP_HTTP_PORT` if set (default `7432`). Logs go to `~/Library/Logs/postgresql-mcp-server.log`.
+
+Run `npm run service:install` again after switching Node versions or moving the checkout. After a `git pull`, restart the server with:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/com.ronhouben.postgresql-mcp-server
+```
+
+Remove it with `npm run service:uninstall`.
