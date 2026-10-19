@@ -37,27 +37,3 @@ DATABASE_SCHEMA_name="your_database_schema_name" # i.e. standard this is usually
   }
 }
 ```
-
-## Running over HTTP
-
-Some clients, like the GitHub Copilot ACP, can't launch stdio servers. Set `MCP_TRANSPORT=http` to serve MCP over streamable HTTP instead:
-
-```sh
-MCP_TRANSPORT=http MCP_HTTP_PORT=7432 npm start
-# or: npm run start:http
-```
-
-The server listens on `http://127.0.0.1:<MCP_HTTP_PORT>/mcp` (default port `7432`). It binds to loopback only and rejects requests with a non-localhost `Host` or `Origin` header. The database environment variables above still apply.
-
-Client config:
-
-```json
-{
-  "servers": {
-    "postgresql-database": {
-      "type": "http",
-      "url": "http://127.0.0.1:7432/mcp"
-    }
-  }
-}
-```

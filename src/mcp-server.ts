@@ -1,13 +1,5 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import {
-  createMcpHandler,
-  hostHeaderValidationResponse,
-  localhostAllowedHostnames,
-  localhostAllowedOrigins,
-  McpServer,
-  originValidationResponse,
-} from '@modelcontextprotocol/server';
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio, type StdioServerHandle } from '@modelcontextprotocol/server/stdio';
 import type { QueryResultRow } from 'pg';
 import { PostgresClient, PostgresClientOptions } from './postgres-client.js';
 
@@ -22,11 +14,7 @@ type PostgresMcpServerOptions = {
   database: PostgresClientOptions;
 };
 
-export type TransportOptions = { type: 'stdio' } | { type: 'http'; port: number };
-
 const TOOL_LIST_CACHE_TTL_MS = 300_000;
-const HTTP_PATH = '/mcp';
-const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 
 export class PostgresMcpServer {
   private readonly postgres: PostgresClient;
@@ -45,85 +33,12 @@ export class PostgresMcpServer {
     });
   }
 
-  public start(transport: TransportOptions = { type: 'stdio' }) {
-    if (transport.type === 'http') {
-      this.startHttp(transport.port);
-      return;
-    }
-
+  public start() {
     const handle = serveStdio(() => this.createPostgresMcpServer());
 
-    this.setHandleClose(() => handle.close());
-    console.error('Postgres MCP server listening on stdio');
-  }
+    this.setHandleClose(handle);
 
-  private startHttp(port: number) {
-    const handler = createMcpHandler(() => this.createPostgresMcpServer(), {
-      onerror: (error) => console.error(error),
-    });
-
-    const httpServer = createServer((req, res) => {
-      void this.handleHttpRequest(handler.fetch, req, res);
-    });
-
-    // Bind to loopback only; the Host/Origin checks below assume a local server.
-    httpServer.listen(port, '127.0.0.1', () => {
-      console.error(`Postgres MCP server listening on http://127.0.0.1:${port}${HTTP_PATH}`);
-    });
-
-    this.setHandleClose(async () => {
-      await handler.close();
-      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    });
-  }
-
-  private async handleHttpRequest(
-    fetchHandler: (request: Request) => Promise<Response>,
-    req: IncomingMessage,
-    res: ServerResponse
-  ) {
-    try {
-      const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-
-      if (url.pathname !== HTTP_PATH) {
-        res.writeHead(404).end();
-        return;
-      }
-
-      const method = req.method ?? 'GET';
-      const headers = toHeaders(req);
-      const headersOnlyRequest = new Request(url, { method, headers });
-      const rejection =
-        hostHeaderValidationResponse(headersOnlyRequest, localhostAllowedHostnames()) ??
-        originValidationResponse(headersOnlyRequest, localhostAllowedOrigins());
-
-      if (rejection) {
-        await writeWebResponse(rejection, res);
-        return;
-      }
-
-      let body: Uint8Array<ArrayBuffer> | undefined;
-
-      if (method !== 'GET' && method !== 'HEAD') {
-        body = await readBody(req, MAX_REQUEST_BODY_BYTES);
-
-        if (!body) {
-          res.writeHead(413, { Connection: 'close' }).end();
-          return;
-        }
-      }
-
-      const response = await fetchHandler(new Request(url, { method, headers, body }));
-
-      await writeWebResponse(response, res);
-    } catch (error) {
-      console.error(error);
-
-      if (!res.headersSent) {
-        res.writeHead(500);
-      }
-      res.end();
-    }
+    return handle;
   }
 
   private createPostgresMcpServer() {
@@ -245,9 +160,9 @@ export class PostgresMcpServer {
     );
   }
 
-  private setHandleClose(closeTransport: () => Promise<void>) {
+  private setHandleClose(handle: StdioServerHandle) {
     const shutdown = async () => {
-      await closeTransport();
+      await handle.close();
       await this.postgres.close();
     };
 
@@ -263,97 +178,4 @@ export class PostgresMcpServer {
       structuredContent,
     };
   }
-}
-
-function toHeaders(req: IncomingMessage): Headers {
-  const headers = new Headers();
-
-  for (const [name, value] of Object.entries(req.headers)) {
-    if (Array.isArray(value)) {
-      value.forEach((item) => headers.append(name, item));
-    } else if (value !== undefined) {
-      headers.set(name, value);
-    }
-  }
-
-  return headers;
-}
-
-// Resolves undefined when the body exceeds maxBytes.
-function readBody(req: IncomingMessage, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | undefined> {
-  if (Number(req.headers['content-length'] ?? 0) > maxBytes) {
-    return Promise.resolve(undefined);
-  }
-
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-
-    const cleanup = () => {
-      req.off('data', onData);
-      req.off('end', onEnd);
-      req.off('error', onError);
-    };
-    const onData = (chunk: Buffer) => {
-      size += chunk.length;
-
-      if (size > maxBytes) {
-        cleanup();
-        resolve(undefined);
-        return;
-      }
-      chunks.push(chunk);
-    };
-    const onEnd = () => {
-      cleanup();
-      resolve(new Uint8Array(Buffer.concat(chunks)));
-    };
-    const onError = (error: Error) => {
-      cleanup();
-      reject(error);
-    };
-
-    req.on('data', onData);
-    req.on('end', onEnd);
-    req.on('error', onError);
-  });
-}
-
-async function writeWebResponse(response: Response, res: ServerResponse) {
-  res.writeHead(response.status, Object.fromEntries(response.headers));
-
-  if (!response.body) {
-    res.end();
-    return;
-  }
-
-  // Flush headers right away so SSE clients see the stream open.
-  res.flushHeaders();
-
-  const reader = response.body.getReader();
-  res.once('close', () => void reader.cancel());
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done || res.destroyed) {
-      break;
-    }
-    if (!res.write(value)) {
-      await waitForDrain(res);
-    }
-  }
-
-  res.end();
-}
-
-function waitForDrain(res: ServerResponse): Promise<void> {
-  return new Promise((resolve) => {
-    const done = () => {
-      res.off('drain', done);
-      res.off('close', done);
-      resolve();
-    };
-    res.once('drain', done);
-    res.once('close', done);
-  });
 }
