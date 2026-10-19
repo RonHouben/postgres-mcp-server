@@ -1,5 +1,13 @@
-import { McpServer } from '@modelcontextprotocol/server';
-import { serveStdio, type StdioServerHandle } from '@modelcontextprotocol/server/stdio';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import {
+  createMcpHandler,
+  hostHeaderValidationResponse,
+  localhostAllowedHostnames,
+  localhostAllowedOrigins,
+  McpServer,
+  originValidationResponse,
+} from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import type { QueryResultRow } from 'pg';
 import { PostgresClient, PostgresClientOptions } from './postgres-client.js';
 
@@ -14,7 +22,10 @@ type PostgresMcpServerOptions = {
   database: PostgresClientOptions;
 };
 
+export type TransportOptions = { type: 'stdio' } | { type: 'http'; port: number };
+
 const TOOL_LIST_CACHE_TTL_MS = 300_000;
+const HTTP_PATH = '/mcp';
 
 export class PostgresMcpServer {
   private readonly postgres: PostgresClient;
@@ -33,12 +44,66 @@ export class PostgresMcpServer {
     });
   }
 
-  public start() {
+  public start(transport: TransportOptions = { type: 'stdio' }) {
+    if (transport.type === 'http') {
+      this.startHttp(transport.port);
+      return;
+    }
+
     const handle = serveStdio(() => this.createPostgresMcpServer());
 
-    this.setHandleClose(handle);
+    this.setHandleClose(() => handle.close());
+    console.error('Postgres MCP server listening on stdio');
+  }
 
-    return handle;
+  private startHttp(port: number) {
+    const handler = createMcpHandler(() => this.createPostgresMcpServer(), {
+      onerror: (error) => console.error(error),
+    });
+
+    const httpServer = createServer((req, res) => {
+      void this.handleHttpRequest(handler.fetch, req, res);
+    });
+
+    // Bind to loopback only; the Host/Origin checks below assume a local server.
+    httpServer.listen(port, '127.0.0.1', () => {
+      console.error(`Postgres MCP server listening on http://127.0.0.1:${port}${HTTP_PATH}`);
+    });
+
+    this.setHandleClose(async () => {
+      await handler.close();
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    });
+  }
+
+  private async handleHttpRequest(
+    fetchHandler: (request: Request) => Promise<Response>,
+    req: IncomingMessage,
+    res: ServerResponse
+  ) {
+    try {
+      const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+
+      if (url.pathname !== HTTP_PATH) {
+        res.writeHead(404).end();
+        return;
+      }
+
+      const request = await toWebRequest(req, url);
+      const response =
+        hostHeaderValidationResponse(request, localhostAllowedHostnames()) ??
+        originValidationResponse(request, localhostAllowedOrigins()) ??
+        (await fetchHandler(request));
+
+      await writeWebResponse(response, res);
+    } catch (error) {
+      console.error(error);
+
+      if (!res.headersSent) {
+        res.writeHead(500);
+      }
+      res.end();
+    }
   }
 
   private createPostgresMcpServer() {
@@ -160,9 +225,9 @@ export class PostgresMcpServer {
     );
   }
 
-  private setHandleClose(handle: StdioServerHandle) {
+  private setHandleClose(closeTransport: () => Promise<void>) {
     const shutdown = async () => {
-      await handle.close();
+      await closeTransport();
       await this.postgres.close();
     };
 
@@ -178,4 +243,54 @@ export class PostgresMcpServer {
       structuredContent,
     };
   }
+}
+
+async function toWebRequest(req: IncomingMessage, url: URL): Promise<Request> {
+  const headers = new Headers();
+
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (Array.isArray(value)) {
+      value.forEach((item) => headers.append(name, item));
+    } else if (value !== undefined) {
+      headers.set(name, value);
+    }
+  }
+
+  const method = req.method ?? 'GET';
+  let body: Uint8Array<ArrayBuffer> | undefined;
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk as Buffer);
+    }
+    body = new Uint8Array(Buffer.concat(chunks));
+  }
+
+  return new Request(url, { method, headers, body });
+}
+
+async function writeWebResponse(response: Response, res: ServerResponse) {
+  res.writeHead(response.status, Object.fromEntries(response.headers));
+
+  if (!response.body) {
+    res.end();
+    return;
+  }
+
+  // Flush headers right away so SSE clients see the stream open.
+  res.flushHeaders();
+
+  const reader = response.body.getReader();
+  res.once('close', () => void reader.cancel());
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    res.write(value);
+  }
+
+  res.end();
 }
