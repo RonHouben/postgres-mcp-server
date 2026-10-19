@@ -43,6 +43,8 @@ const postgresMcpServer = new PostgresMcpServer({
   },
 });
 
-postgresMcpServer.start();
-
-console.error('Postgres MCP server listening on stdio');
+postgresMcpServer.start(
+  process.env.MCP_TRANSPORT === 'http'
+    ? { type: 'http', port: Number(process.env.MCP_HTTP_PORT ?? 7432) }
+    : { type: 'stdio' }
+);
