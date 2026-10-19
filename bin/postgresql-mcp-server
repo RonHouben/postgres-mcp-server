@@ -1,4 +1,0 @@
-#!/bin/zsh
-# launchd runs this script so Login Items shows "postgresql-mcp-server" instead of the node signer.
-cd "${0:A:h:h}" || exit 1
-exec "${NODE_BIN:-node}" --import tsx src/index.ts

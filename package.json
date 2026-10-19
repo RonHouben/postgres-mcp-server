@@ -19,9 +19,6 @@
   },
   "scripts": {
     "start": "tsx src/index.ts",
-    "start:http": "MCP_TRANSPORT=http tsx src/index.ts",
-    "service:install": "zsh scripts/macos-service.sh install",
-    "service:uninstall": "zsh scripts/macos-service.sh uninstall",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1",
