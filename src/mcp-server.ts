@@ -26,6 +26,7 @@ export type TransportOptions = { type: 'stdio' } | { type: 'http'; port: number 
 
 const TOOL_LIST_CACHE_TTL_MS = 300_000;
 const HTTP_PATH = '/mcp';
+const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 
 export class PostgresMcpServer {
   private readonly postgres: PostgresClient;
@@ -89,11 +90,30 @@ export class PostgresMcpServer {
         return;
       }
 
-      const request = await toWebRequest(req, url);
-      const response =
-        hostHeaderValidationResponse(request, localhostAllowedHostnames()) ??
-        originValidationResponse(request, localhostAllowedOrigins()) ??
-        (await fetchHandler(request));
+      const method = req.method ?? 'GET';
+      const headers = toHeaders(req);
+      const headersOnlyRequest = new Request(url, { method, headers });
+      const rejection =
+        hostHeaderValidationResponse(headersOnlyRequest, localhostAllowedHostnames()) ??
+        originValidationResponse(headersOnlyRequest, localhostAllowedOrigins());
+
+      if (rejection) {
+        await writeWebResponse(rejection, res);
+        return;
+      }
+
+      let body: Uint8Array<ArrayBuffer> | undefined;
+
+      if (method !== 'GET' && method !== 'HEAD') {
+        body = await readBody(req, MAX_REQUEST_BODY_BYTES);
+
+        if (!body) {
+          res.writeHead(413, { Connection: 'close' }).end();
+          return;
+        }
+      }
+
+      const response = await fetchHandler(new Request(url, { method, headers, body }));
 
       await writeWebResponse(response, res);
     } catch (error) {
@@ -245,7 +265,7 @@ export class PostgresMcpServer {
   }
 }
 
-async function toWebRequest(req: IncomingMessage, url: URL): Promise<Request> {
+function toHeaders(req: IncomingMessage): Headers {
   const headers = new Headers();
 
   for (const [name, value] of Object.entries(req.headers)) {
@@ -256,18 +276,47 @@ async function toWebRequest(req: IncomingMessage, url: URL): Promise<Request> {
     }
   }
 
-  const method = req.method ?? 'GET';
-  let body: Uint8Array<ArrayBuffer> | undefined;
+  return headers;
+}
 
-  if (method !== 'GET' && method !== 'HEAD') {
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      chunks.push(chunk as Buffer);
-    }
-    body = new Uint8Array(Buffer.concat(chunks));
+// Resolves undefined when the body exceeds maxBytes.
+function readBody(req: IncomingMessage, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | undefined> {
+  if (Number(req.headers['content-length'] ?? 0) > maxBytes) {
+    return Promise.resolve(undefined);
   }
 
-  return new Request(url, { method, headers, body });
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+
+    const cleanup = () => {
+      req.off('data', onData);
+      req.off('end', onEnd);
+      req.off('error', onError);
+    };
+    const onData = (chunk: Buffer) => {
+      size += chunk.length;
+
+      if (size > maxBytes) {
+        cleanup();
+        resolve(undefined);
+        return;
+      }
+      chunks.push(chunk);
+    };
+    const onEnd = () => {
+      cleanup();
+      resolve(new Uint8Array(Buffer.concat(chunks)));
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+
+    req.on('data', onData);
+    req.on('end', onEnd);
+    req.on('error', onError);
+  });
 }
 
 async function writeWebResponse(response: Response, res: ServerResponse) {
@@ -286,11 +335,25 @@ async function writeWebResponse(response: Response, res: ServerResponse) {
 
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) {
+    if (done || res.destroyed) {
       break;
     }
-    res.write(value);
+    if (!res.write(value)) {
+      await waitForDrain(res);
+    }
   }
 
   res.end();
+}
+
+function waitForDrain(res: ServerResponse): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      res.off('drain', done);
+      res.off('close', done);
+      resolve();
+    };
+    res.once('drain', done);
+    res.once('close', done);
+  });
 }
