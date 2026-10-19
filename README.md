@@ -47,20 +47,7 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=7432 npm start
 # or: npm run start:http
 ```
 
-The server listens on `http://127.0.0.1:<MCP_HTTP_PORT>/mcp` (default port `7432`). It binds to loopback only and rejects requests with a non-localhost `Host` or `Origin` header.
-
-Each consumer can pass its own settings as headers in its MCP config. A header overrides the matching environment variable; anything left out falls back to the environment.
-
-| Header                   | Environment variable   |
-| ------------------------ | ---------------------- |
-| `X-Database-Name`        | `DATABASE_NAME`        |
-| `X-Database-User`        | `DATABASE_USER`        |
-| `X-Database-Password`    | `DATABASE_PASSWORD`    |
-| `X-Database-Schema-Name` | `DATABASE_SCHEMA_NAME` |
-| `X-Custom-Instructions`  | `CUSTOM_INSTRUCTIONS`  |
-| `X-Allow-Write-Queries`  | `ALLOW_WRITE_QUERIES`  |
-
-Header values must be a single line of plain ASCII.
+The server listens on `http://127.0.0.1:<MCP_HTTP_PORT>/mcp` (default port `7432`). It binds to loopback only and rejects requests with a non-localhost `Host` or `Origin` header. The database environment variables above still apply.
 
 Client config:
 
@@ -69,13 +56,7 @@ Client config:
   "servers": {
     "postgresql-database": {
       "type": "http",
-      "url": "http://127.0.0.1:7432/mcp",
-      "headers": {
-        "X-Database-User": "my-user",
-        "X-Database-Password": "my-password",
-        "X-Database-Schema-Name": "public",
-        "X-Custom-Instructions": "The databaseName matches the current git branch."
-      }
+      "url": "http://127.0.0.1:7432/mcp"
     }
   }
 }
